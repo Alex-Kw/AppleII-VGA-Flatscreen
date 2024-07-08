@@ -50,7 +50,7 @@ void generate_hires_tables() {
 }
 
 
-void __time_critical_func(render_hires)(bool mixed) {
+void render_hires(bool mixed) {
     vga_prepare_frame();
     // Skip 48 lines to center vertically
     vga_skip_lines(48);
@@ -70,7 +70,7 @@ void __time_critical_func(render_hires)(bool mixed) {
 
     if(mixed) {
         for(uint line = 20; line < 24; line++) {
-            render_text_line(line);
+            render_text_line(line, false);
         }
     } else {
         for(uint line = 160; line < 192; line++) {
@@ -80,7 +80,7 @@ void __time_critical_func(render_hires)(bool mixed) {
 }
 
 
-static void __time_critical_func(render_hires_line)(uint line) {
+static void render_hires_line(uint line) {
     struct vga_scanline *sl = vga_prepare_scanline();
     uint sl_pos = 0;
 
@@ -174,7 +174,7 @@ static void __time_critical_func(render_hires_line)(uint line) {
 
 
 #ifdef APPLE_MODEL_IIE
-static void __time_critical_func(render_dhires_line)(uint line) {
+static void render_dhires_line(uint line) {
     uint sl_pos = 0;
 
     // Don't support soft-monochrome mode for the 160x192 RGB mode. It could be done but it would

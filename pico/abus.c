@@ -1,10 +1,14 @@
 #include <string.h>
 #include <hardware/pio.h>
-#include "config.h"
 #include "abus.h"
 #include "abus.pio.h"
+#include "board_config.h"
 #include "buffers.h"
 #include "colors.h"
+#include "device_regs.h"
+#ifdef APPLE_MODEL_IIPLUS
+#include "videx_vterm.h"
+#endif
 
 
 #if CONFIG_PIN_APPLEBUS_PHI0 != PHI0_GPIO
@@ -20,8 +24,7 @@ typedef void (*shadow_handler)(bool is_write, uint_fast16_t address, uint_fast8_
 
 
 static int reset_detect_state = 0;
-static unsigned int char_write_offset;
-static shadow_handler softsw_handlers[128];
+static shadow_handler softsw_handlers[256];
 
 
 static void abus_main_setup(PIO pio, uint sm) {
@@ -77,47 +80,47 @@ static void abus_main_setup(PIO pio, uint sm) {
 }
 
 
-static void __time_critical_func(shadow_softsw_00)(bool is_write, uint_fast16_t address, uint_fast8_t data) {
+static void shadow_softsw_00(bool is_write, uint_fast16_t address, uint_fast8_t data) {
     if(is_write)
         soft_80store = false;
 }
 
-static void __time_critical_func(shadow_softsw_01)(bool is_write, uint_fast16_t address, uint_fast8_t data) {
+static void shadow_softsw_01(bool is_write, uint_fast16_t address, uint_fast8_t data) {
     if(is_write)
         soft_80store = true;
 }
 
-static void __time_critical_func(shadow_softsw_04)(bool is_write, uint_fast16_t address, uint_fast8_t data) {
+static void shadow_softsw_04(bool is_write, uint_fast16_t address, uint_fast8_t data) {
     if(is_write)
         soft_ramwrt = false;
 }
 
-static void __time_critical_func(shadow_softsw_05)(bool is_write, uint_fast16_t address, uint_fast8_t data) {
+static void shadow_softsw_05(bool is_write, uint_fast16_t address, uint_fast8_t data) {
     if(is_write)
         soft_ramwrt = true;
 }
 
-static void __time_critical_func(shadow_softsw_0c)(bool is_write, uint_fast16_t address, uint_fast8_t data) {
+static void shadow_softsw_0c(bool is_write, uint_fast16_t address, uint_fast8_t data) {
     if(is_write)
         soft_80col = false;
 }
 
-static void __time_critical_func(shadow_softsw_0d)(bool is_write, uint_fast16_t address, uint_fast8_t data) {
+static void shadow_softsw_0d(bool is_write, uint_fast16_t address, uint_fast8_t data) {
     if(is_write)
         soft_80col = true;
 }
 
-static void __time_critical_func(shadow_softsw_0e)(bool is_write, uint_fast16_t address, uint_fast8_t data) {
+static void shadow_softsw_0e(bool is_write, uint_fast16_t address, uint_fast8_t data) {
     if(is_write)
         soft_altcharset = false;
 }
 
-static void __time_critical_func(shadow_softsw_0f)(bool is_write, uint_fast16_t address, uint_fast8_t data) {
+static void shadow_softsw_0f(bool is_write, uint_fast16_t address, uint_fast8_t data) {
     if(is_write)
         soft_altcharset = true;
 }
 
-static void __time_critical_func(shadow_softsw_21)(bool is_write, uint_fast16_t address, uint_fast8_t data) {
+static void shadow_softsw_21(bool is_write, uint_fast16_t address, uint_fast8_t data) {
     if(is_write) {
         if(data & 0x80) {
             soft_monochrom = true;
@@ -127,43 +130,55 @@ static void __time_critical_func(shadow_softsw_21)(bool is_write, uint_fast16_t 
     }
 }
 
-static void __time_critical_func(shadow_softsw_50)(bool is_write, uint_fast16_t address, uint_fast8_t data) {
+static void shadow_softsw_50(bool is_write, uint_fast16_t address, uint_fast8_t data) {
     soft_switches &= ~((uint32_t)SOFTSW_TEXT_MODE);
 }
 
-static void __time_critical_func(shadow_softsw_51)(bool is_write, uint_fast16_t address, uint_fast8_t data) {
+static void shadow_softsw_51(bool is_write, uint_fast16_t address, uint_fast8_t data) {
     soft_switches |= SOFTSW_TEXT_MODE;
 }
 
-static void __time_critical_func(shadow_softsw_52)(bool is_write, uint_fast16_t address, uint_fast8_t data) {
+static void shadow_softsw_52(bool is_write, uint_fast16_t address, uint_fast8_t data) {
     soft_switches &= ~((uint32_t)SOFTSW_MIX_MODE);
 }
 
-static void __time_critical_func(shadow_softsw_53)(bool is_write, uint_fast16_t address, uint_fast8_t data) {
+static void shadow_softsw_53(bool is_write, uint_fast16_t address, uint_fast8_t data) {
     soft_switches |= SOFTSW_MIX_MODE;
 }
 
-static void __time_critical_func(shadow_softsw_54)(bool is_write, uint_fast16_t address, uint_fast8_t data) {
+static void shadow_softsw_54(bool is_write, uint_fast16_t address, uint_fast8_t data) {
     soft_switches &= ~((uint32_t)SOFTSW_PAGE_2);
 }
 
-static void __time_critical_func(shadow_softsw_55)(bool is_write, uint_fast16_t address, uint_fast8_t data) {
+static void shadow_softsw_55(bool is_write, uint_fast16_t address, uint_fast8_t data) {
     soft_switches |= SOFTSW_PAGE_2;
 }
 
-static void __time_critical_func(shadow_softsw_56)(bool is_write, uint_fast16_t address, uint_fast8_t data) {
+static void shadow_softsw_56(bool is_write, uint_fast16_t address, uint_fast8_t data) {
     soft_switches &= ~((uint32_t)SOFTSW_HIRES_MODE);
 }
 
-static void __time_critical_func(shadow_softsw_57)(bool is_write, uint_fast16_t address, uint_fast8_t data) {
+static void shadow_softsw_57(bool is_write, uint_fast16_t address, uint_fast8_t data) {
     soft_switches |= SOFTSW_HIRES_MODE;
 }
 
-static void __time_critical_func(shadow_softsw_5e)(bool is_write, uint_fast16_t address, uint_fast8_t data) {
+static void shadow_softsw_58(bool is_write, uint_fast16_t address, uint_fast8_t data) {
+#ifdef APPLE_MODEL_IIPLUS
+    videx_vterm_80col_enabled = false;
+#endif
+}
+
+static void shadow_softsw_59(bool is_write, uint_fast16_t address, uint_fast8_t data) {
+#ifdef APPLE_MODEL_IIPLUS
+    videx_vterm_80col_enabled = true;
+#endif
+}
+
+static void shadow_softsw_5e(bool is_write, uint_fast16_t address, uint_fast8_t data) {
     soft_dhires = true;
 }
 
-static void __time_critical_func(shadow_softsw_5f)(bool is_write, uint_fast16_t address, uint_fast8_t data) {
+static void shadow_softsw_5f(bool is_write, uint_fast16_t address, uint_fast8_t data) {
     if(soft_dhires) {
         // This is the VIDEO7 Magic (Not documented by apple but by a patent US4631692)
         // Apple II has softswitches and also a special 2bit shift register (two flipflops basically)
@@ -181,6 +196,10 @@ void abus_init() {
     // Init states
     soft_switches = SOFTSW_TEXT_MODE;
 
+#ifdef APPLE_MODEL_IIPLUS
+    videx_vterm_init();
+#endif
+
     // Setup soft-switch handlers for the Apple model
     softsw_handlers[0x21] = shadow_softsw_21;
     softsw_handlers[0x50] = shadow_softsw_50;
@@ -191,6 +210,8 @@ void abus_init() {
     softsw_handlers[0x55] = shadow_softsw_55;
     softsw_handlers[0x56] = shadow_softsw_56;
     softsw_handlers[0x57] = shadow_softsw_57;
+    softsw_handlers[0x58] = shadow_softsw_58;
+    softsw_handlers[0x59] = shadow_softsw_59;
 #ifdef APPLE_MODEL_IIE
     softsw_handlers[0x00] = shadow_softsw_00;
     softsw_handlers[0x01] = shadow_softsw_01;
@@ -203,6 +224,12 @@ void abus_init() {
     softsw_handlers[0x5e] = shadow_softsw_5e;
     softsw_handlers[0x5f] = shadow_softsw_5f;
 #endif
+#ifdef APPLE_MODEL_IIPLUS
+    // slot 3 device registers
+    for(uint i = 0xb0; i < 0xc0; i++) {
+        softsw_handlers[i] = videx_vterm_shadow_register;
+    }
+#endif
 
     abus_main_setup(CONFIG_ABUS_PIO, ABUS_MAIN_SM);
 
@@ -210,44 +237,8 @@ void abus_init() {
 }
 
 
-// Handle a write to one of the registers on this device's slot
-static void __time_critical_func(device_write)(uint_fast8_t reg, uint_fast8_t data) {
-    switch(reg) {
-    case 0x00:
-        if(data & 0x01)
-            soft_scanline_emulation = true;
-        if(data & 0x02)
-            soft_scanline_emulation = false;
-        break;
-
-    // soft-monochrome color setting
-    case 0x01:
-        if(data & 0xf) {
-            mono_fg_color = mono_fg_colors[data & 0x3];
-        }
-        if(data & 0xf0) {
-            mono_bg_color = mono_bg_colors[(data >> 4) & 0x3];
-        }
-        break;
-
-    // character generator write offset
-    case 0x02:
-        char_write_offset = data << 3;
-        break;
-
-    // character generator write
-    case 0x03:
-        character_rom[char_write_offset] = data;
-        char_write_offset = (char_write_offset + 1) % sizeof(character_rom);
-        break;
-
-    default:;
-    }
-}
-
-
 // Shadow parts of the Apple's memory by observing the bus write cycles
-static void __time_critical_func(shadow_memory)(bool is_write, uint_fast16_t address, uint32_t value) {
+static void shadow_memory(bool is_write, uint_fast16_t address, uint32_t value) {
     uint8_t *bank;
 
     switch((address & 0xfc00) >> 10) {
@@ -309,13 +300,28 @@ static void __time_critical_func(shadow_memory)(bool is_write, uint_fast16_t add
     case 0xc000 >> 10:
         reset_detect_state = 0;
 
-        // Handle shadowing of the soft switches in the range 0xc000 - 0xc07f
-        if(address < 0xc080) {
-            shadow_handler h = softsw_handlers[address & 0x7f];
+        // Handle shadowing of the soft switches and I/O in the range $C000 - $C0FF
+        if(address < 0xc100) {
+            shadow_handler h = softsw_handlers[address & 0xff];
             if(h) {
                 h(is_write, address, value & 0xff);
             }
         }
+#ifdef APPLE_MODEL_IIPLUS
+        else if((address >= 0xc300) && (address < 0xc400)) {
+            // slot 3 access
+            videx_vterm_mem_selected = true;
+        }
+#endif
+        break;
+
+    case 0xc800 >> 10:
+    case 0xcc00 >> 10:
+        // expansion slot memory space $C800-$CFFF
+        reset_detect_state = 0;
+#ifdef APPLE_MODEL_IIPLUS
+        videx_vterm_shadow_c8xx(is_write, address, value);
+#endif
         break;
 
     case 0x0000 >> 10:
@@ -341,6 +347,9 @@ static void __time_critical_func(shadow_memory)(bool is_write, uint_fast16_t add
             soft_80store = false;
             soft_altcharset = false;
             soft_ramwrt = false;
+#ifdef APPLE_MODEL_IIPLUS
+            videx_vterm_80col_enabled = false;
+#endif
 
             reset_detect_state = 0;
         } else {
@@ -355,7 +364,7 @@ static void __time_critical_func(shadow_memory)(bool is_write, uint_fast16_t add
 }
 
 
-void __time_critical_func(abus_loop)() {
+void abus_loop() {
     while(1) {
         uint32_t value = pio_sm_get_blocking(CONFIG_ABUS_PIO, ABUS_MAIN_SM);
 

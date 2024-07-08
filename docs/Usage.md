@@ -4,6 +4,9 @@ After you load on the firmware for your respective Apple II system (II+ or IIe)
 the VGA card is generally plug-and-play. Plug it in, power on your Apple II
 and that's it.
 
+There are some optional features and other controls that can be changed using the
+menu-based Configuration disk or by directly using `POKE` commands.
+
 
 ## Soft Monochrome Mode
 
@@ -24,11 +27,13 @@ When enabled this will:
    "Colors" originally created by NTSC artifacting will appear as sequences of dots.
  * Switch to the monochrome color palette (black & white by default)
 
+This setting will be saved across power-cycles if the "Save" command is executed.
+
 
 ## Device Registers
 
-The card's device registers can be written to change some settings. *These settings are
-not saved between power-cycles*
+The card's device registers can be written to change some settings. These settings persist across
+CPU resets and will be saved permanently if the "Save" command is executed (see register 4).
 
 The register base address depends on the slot number in which you installed the card:
 
@@ -54,7 +59,9 @@ This register controls enablement of some features of the card
 
 | bit(s) | Description
 | ------ | -----------
-|  7:2   | reserved
+|  7:4   | reserved
+|   3    | Setting to 1 will disable Videx VideoTerm support (II+ only)
+|   2    | Setting to 1 will enable Videx VideoTerm support (II+ only)
 |   1    | Setting to 1 will disable simulated scanline rendering
 |   0    | Setting to 1 will enable simulated scanline rendering
 
@@ -66,7 +73,8 @@ This register controls the output color when soft-monochrome mode is enabled
 
 | bit(s) | Description
 | ------ | -----------
-|  7:6   | reserved
+|   7    | Setting to 1 will disable forcing the use of the monochrome color in text modes.
+|   6    | Setting to 1 will force the use of the chosen monochrome color in text modes, even when soft-monochrome mode is not enabled.
 |  5:4   | Setting non-zero will choose a background color (1=black, 2=green, 3=amber)
 |  3:2   | reserved
 |  1:0   | Setting non-zero will choose a foreground color (1=white, 2=green, 3=amber)
@@ -92,3 +100,35 @@ For example, to replace the '#' character (character number `$A3`) with '£':
     POKE BASEADDR+3, 132
     POKE BASEADDR+3, 250
     POKE BASEADDR+3, 128
+
+Changes made to the text character patterns will be saved permanently when the "Save" command
+is executed.
+
+
+### Register 4 - Device command
+
+**[write-only]**
+This register allows a one-shot device command to be executed. The value written is the command
+to execute.
+
+|   value   | Description
+| --------- | -----------
+|    $00    | Load the default configuration values
+|    $01    | Load the stored configuration from flash. This automatically happens on power-up.
+|    $02    | Save the current configuration to flash
+| $10 - $1f | Load one of the built-in character ROMs
+
+
+
+#### Saving settings permanently
+
+To permanently save changes to flash, like say you update a text character pattern or want to always
+have scanline emulation enabled, then you just execute command `$02`:
+
+    POKE BASEADDR+4, 2
+
+To permanently restore the default settings (text font, monochrome colors, etc) you would need to execute
+command `$00` to revert the RAM settings to the defaults and then `$02` to save the change to flash:
+
+    POKE BASEADDR+4, 0
+    POKE BASEADDR+4, 2
